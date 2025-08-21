@@ -57,29 +57,42 @@ jobs:
         run: go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
         shell: bash
 
-      - name: Build Caddy with Cloudflare plugin (no extensions)
+      - name: Build Caddy with Cloudflare plugin
         run: |
           mkdir -p build
-          if [ "${{ matrix.goarch }}" = "arm" ]; then
-            xcaddy build \
-              --with github.com/caddy-dns/cloudflare \
-              --output build/caddy-${{ matrix.goos }}-armv${{ matrix.goarm }}
+          
+          # Determine output filename
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            out="build/caddy-${{ matrix.goos }}-${{ matrix.goarch }}.exe"
+          elif [ "${{ matrix.goarch }}" = "arm" ]; then
+            out="build/caddy-${{ matrix.goos }}-armv${{ matrix.goarm }}"
           else
-            xcaddy build \
-              --with github.com/caddy-dns/cloudflare \
-              --output build/caddy-${{ matrix.goos }}-${{ matrix.goarch }}
+            out="build/caddy-${{ matrix.goos }}-${{ matrix.goarch }}"
           fi
+
+          xcaddy build \
+            --with github.com/caddy-dns/cloudflare \
+            --output $out
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm || '' }}
         shell: bash
 
+      - name: Prepare release artifacts (remove extensions)
+        run: |
+          mkdir -p release
+          for f in build/*; do
+            base=$(basename "$f")
+            # Remove .exe extension if exists
+            mv "$f" "release/${base%.exe}"
+          done
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: caddy-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: build/*
+          path: release/*
 
   release:
     needs: build
