@@ -10,26 +10,37 @@ jobs:
     strategy:
       matrix:
         include:
+          # Linux
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
-            ext: ""
           - os: ubuntu-latest
             goos: linux
             goarch: arm64
-            ext: ""
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm
+            goarm: 7
+          - os: ubuntu-latest
+            goos: linux
+            goarch: ppc64le
+          - os: ubuntu-latest
+            goos: linux
+            goarch: s390x
+          # macOS
           - os: macos-latest
             goos: darwin
             goarch: amd64
-            ext: ""
           - os: macos-latest
             goos: darwin
             goarch: arm64
-            ext: ""
+          # Windows
           - os: windows-latest
             goos: windows
             goarch: amd64
-            ext: ".exe"
+          - os: windows-latest
+            goos: windows
+            goarch: arm64
 
     runs-on: ${{ matrix.os }}
 
@@ -46,15 +57,22 @@ jobs:
         run: go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
         shell: bash
 
-      - name: Build Caddy with Cloudflare plugin
+      - name: Build Caddy with Cloudflare plugin (no extensions)
         run: |
           mkdir -p build
-          xcaddy build \
-            --with github.com/caddy-dns/cloudflare \
-            --output build/caddy-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+          if [ "${{ matrix.goarch }}" = "arm" ]; then
+            xcaddy build \
+              --with github.com/caddy-dns/cloudflare \
+              --output build/caddy-${{ matrix.goos }}-armv${{ matrix.goarm }}
+          else
+            xcaddy build \
+              --with github.com/caddy-dns/cloudflare \
+              --output build/caddy-${{ matrix.goos }}-${{ matrix.goarch }}
+          fi
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm || '' }}
         shell: bash
 
       - name: Upload build artifact
